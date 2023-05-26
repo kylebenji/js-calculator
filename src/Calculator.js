@@ -62,16 +62,28 @@ function Calculator() {
 
   const invalid = "Invalid formula";
 
+  const numRegEx = /[\d.]/;
+  const operationRegEx = /-*\/+/;
+  const symbolRegEx = /[^0-9.]/;
+  const twoOperationsRegEx = /[-*/+][*/+]/;
+
   function clearResult() {
     setResult(null);
   }
 
   function calculateResult() {
     try {
-      //substitute multiple operators for one operators
+      //substitute multiple operators for one operator
+      let subFormula = formula;
+      let opInd = subFormula.search(twoOperationsRegEx);
+      while (opInd >= 0) {
+        subFormula =
+          subFormula.substring(0, opInd) + subFormula.substring(opInd + 1);
+        opInd = subFormula.search(twoOperationsRegEx);
+      }
 
       //calculate result
-      const calcResult = eval(formula);
+      const calcResult = eval(subFormula);
       //round the result to a certain number of decimal points (3 or 4)
 
       //if the calculation worked, set values
@@ -96,9 +108,28 @@ function Calculator() {
   function addToFormula(target) {
     const val = target.dataset.val;
 
-    //check for existing decimal in recent number
-
-    //check for leading zeros
+    //parse last number
+    const vals = formula.split(symbolRegEx);
+    let lastNum = vals[vals.length - 1];
+    if (lastNum) {
+      //check for existing decimal in recent number
+      if (val === "." && /\./.test(lastNum)) {
+        return;
+      }
+      //parse to ensure that we can properly check for 0
+      lastNum = parseFloat(lastNum);
+      //check for leading zeros
+      if (lastNum === 0) {
+        if (val === "0") {
+          return;
+        } else if (!operationRegEx.test(val)) {
+          setFormula(formula.slice(0, formula.length - 2).concat(val));
+          setDisplay(val);
+          setLastIn(val);
+          return;
+        }
+      }
+    }
 
     //handle previous invalid inputs
     if (result === invalid) {
@@ -110,16 +141,14 @@ function Calculator() {
     //handle display changes
     if (target.classList.contains("operation")) {
       setDisplay(val);
-      setLastIn("operation");
     }
 
     if (target.classList.contains("number")) {
-      if (lastIn === "number") {
+      if (numRegEx.test(lastIn)) {
         setDisplay(display.concat(val));
       } else {
         setDisplay(val);
       }
-      setLastIn("number");
     }
 
     //handle recent results
@@ -131,8 +160,13 @@ function Calculator() {
         setFormula(val); //start a new calc if starting with a number
       }
       clearResult();
+      // update last in
+      setLastIn(val);
       return;
     }
+
+    // update last in
+    setLastIn(val);
 
     //set formula with new values
     setFormula(formula.concat(val));
